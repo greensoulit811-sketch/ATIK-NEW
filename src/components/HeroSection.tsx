@@ -1,13 +1,17 @@
 import { motion } from "framer-motion";
-import heroBg from "@/assets/hero-kids-bubbles.jpg";
+import heroBg from "@/assets/image.png";
 
 const HeroSection = () => {
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden">
+    <section className="relative h-[45vh] sm:h-[60vh] md:h-screen flex items-center overflow-hidden">
       {/* Background image */}
       <div className="absolute inset-0">
-        <img src={heroBg} alt="বাচ্চারা বাবল নিয়ে খেলছে" className="w-full h-full object-cover" width={1920} height={1080} />
-        <div className="absolute inset-0 bg-gradient-to-r from-foreground/80 via-foreground/60 to-transparent" />
+        <img 
+          src={heroBg} 
+          alt="Hero Banner" 
+          className="w-full h-full object-cover object-center" 
+        />
+        <div className="absolute inset-0 bg-black/10 md:bg-gradient-to-r md:from-foreground/80 md:via-foreground/60 md:to-transparent" />
       </div>
 
       <div className="relative z-10 container mx-auto px-4 py-20">
