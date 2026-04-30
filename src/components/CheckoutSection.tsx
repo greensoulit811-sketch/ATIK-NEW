@@ -19,6 +19,7 @@ const CheckoutSection = () => {
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [checkoutStarted, setCheckoutStarted] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -31,16 +32,42 @@ const CheckoutSection = () => {
         .order("created_at", { ascending: false });
       const list = data || [];
       setProducts(list);
-      if (list.length > 0) setSelectedProduct(list[0]);
+      if (list.length > 0) {
+        setSelectedProduct(list[0]);
+        // Track initial AddToCart for the default selected product
+        trackFBEvent("AddToCart", {
+          content_name: list[0].name,
+          value: list[0].price,
+          currency: "BDT"
+        });
+      }
       setLoadingProducts(false);
     };
     fetchProducts();
   }, []);
 
   const unitPrice = selectedProduct?.price || 0;
-  const deliveryCharge = deliveryArea === "inside" ? 60 : 120;
-  const subtotal = unitPrice * quantity;
-  const total = subtotal + deliveryCharge;
+
+  const handleProductSelect = (product: Product) => {
+    setSelectedProduct(product);
+    setQuantity(1);
+    trackFBEvent("AddToCart", {
+      content_name: product.name,
+      value: product.price,
+      currency: "BDT"
+    });
+  };
+
+  const handleFormFocus = () => {
+    if (!checkoutStarted && selectedProduct) {
+      setCheckoutStarted(true);
+      trackFBEvent("InitiateCheckout", {
+        content_name: selectedProduct.name,
+        value: selectedProduct.price,
+        currency: "BDT"
+      });
+    }
+  };
 
   const handleOrder = async () => {
     if (!name || !phone || !address) {
@@ -137,7 +164,7 @@ const CheckoutSection = () => {
             {products.map((product) => (
               <button
                 key={product.id}
-                onClick={() => { setSelectedProduct(product); setQuantity(1); }}
+                onClick={() => handleProductSelect(product)}
                 className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
                   selectedProduct?.id === product.id
                     ? "border-primary bg-primary/5 ring-1 ring-primary"
@@ -201,6 +228,7 @@ const CheckoutSection = () => {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            onFocus={handleFormFocus}
             placeholder="আপনার পুরো নাম লিখুন"
             className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
@@ -213,6 +241,7 @@ const CheckoutSection = () => {
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
+            onFocus={handleFormFocus}
             placeholder="০১XXXXXXXXX"
             className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
@@ -224,6 +253,7 @@ const CheckoutSection = () => {
           <textarea
             value={address}
             onChange={(e) => setAddress(e.target.value)}
+            onFocus={handleFormFocus}
             placeholder="বিস্তারিত ঠিকানা লিখুন"
             rows={2}
             className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"

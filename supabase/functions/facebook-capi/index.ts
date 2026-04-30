@@ -39,6 +39,7 @@ serve(async (req) => {
       source_url,
       fbc,
       fbp,
+      test_event_code,
     } = body;
 
     if (!event_name) {
@@ -69,7 +70,7 @@ serve(async (req) => {
     const eventTime = Math.floor(Date.now() / 1000);
     const eventId = `${event_name}_${eventTime}_${crypto.randomUUID().slice(0, 8)}`;
 
-    const payload = {
+    const payload: any = {
       data: [
         {
           event_name,
@@ -93,6 +94,10 @@ serve(async (req) => {
         },
       ],
     };
+    
+    if (test_event_code) {
+      payload.test_event_code = test_event_code;
+    }
 
     const fbResponse = await fetch(
       `https://graph.facebook.com/v19.0/${pixelId}/events?access_token=${capiToken}`,

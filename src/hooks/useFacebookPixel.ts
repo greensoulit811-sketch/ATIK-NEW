@@ -4,22 +4,26 @@ import { supabase } from "@/integrations/supabase/client";
 let pixelInitialized = false;
 
 export const useFacebookPixel = () => {
-  const [pixelId, setPixelId] = useState<string | null>(null);
+  const [settings, setSettings] = useState<{ id: string | null; testCode: string | null }>({ id: null, testCode: null });
 
   useEffect(() => {
-    const fetchPixelId = async () => {
+    const fetchSettings = async () => {
       const { data } = await supabase
         .from("site_settings")
-        .select("value")
-        .eq("key", "fb_pixel_id")
-        .single();
-      if (data?.value) setPixelId(data.value);
+        .select("key, value")
+        .in("key", ["fb_pixel_id", "fb_test_event_code"]);
+      
+      if (data) {
+        const id = data.find(s => s.key === "fb_pixel_id")?.value || null;
+        const testCode = data.find(s => s.key === "fb_test_event_code")?.value || null;
+        setSettings({ id, testCode });
+      }
     };
-    fetchPixelId();
+    fetchSettings();
   }, []);
 
   useEffect(() => {
-    if (!pixelId || pixelInitialized) return;
+    if (!settings.id || pixelInitialized) return;
 
     // Load Facebook Pixel script
     const script = document.createElement("script");
@@ -32,7 +36,7 @@ export const useFacebookPixel = () => {
       t.src=v;s=b.getElementsByTagName(e)[0];
       s.parentNode.insertBefore(t,s)}(window,document,'script',
       'https://connect.facebook.net/en_US/fbevents.js');
-      fbq('init', '${pixelId}');
+      fbq('init', '${settings.id}');
       fbq('track', 'PageView');
     `;
     document.head.appendChild(script);
@@ -43,19 +47,21 @@ export const useFacebookPixel = () => {
     img.height = 1;
     img.width = 1;
     img.style.display = "none";
-    img.src = `https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`;
+    img.src = `https://www.facebook.com/tr?id=${settings.id}&ev=PageView&noscript=1`;
     noscript.appendChild(img);
     document.body.appendChild(noscript);
 
     pixelInitialized = true;
-  }, [pixelId]);
+  }, [settings.id]);
 
-  return pixelId;
+  return settings;
 };
 
 export const trackFBEvent = (eventName: string, params?: Record<string, unknown>) => {
   if (typeof window !== "undefined" && (window as any).fbq) {
     (window as any).fbq("track", eventName, params);
+  } else {
+    console.warn(`FB Pixel not loaded. Failed to track: ${eventName}`);
   }
 };
 
@@ -66,12 +72,24 @@ export const sendServerEvent = async (eventData: {
   value: number;
   currency?: string;
   content_name?: string;
+  test_event_code?: string;
 }) => {
   try {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     
-    await fetch(`${supabaseUrl}/functions/v1/facebook-capi`, {
+    // Fetch test event code from DB if not provided
+    let finalTestCode = eventData.test_event_code;
+    if (!finalTestCode) {
+      const { data } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "fb_test_event_code")
+        .single();
+      if (data?.value) finalTestCode = data.value;
+    }
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/facebook-capi`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -79,13 +97,19 @@ export const sendServerEvent = async (eventData: {
       },
       body: JSON.stringify({
         ...eventData,
+        test_event_code: finalTestCode,
         source_url: window.location.href,
         fbc: getCookie("_fbc") || undefined,
         fbp: getCookie("_fbp") || undefined,
       }),
     });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Failed to send CAPI event");
+    return result;
   } catch (err) {
     console.error("CAPI event failed:", err);
+    return null;
   }
 };
 
