@@ -16,6 +16,7 @@ export const useFacebookPixel = () => {
       if (data) {
         const id = data.find(s => s.key === "fb_pixel_id")?.value || null;
         const testCode = data.find(s => s.key === "fb_test_event_code")?.value || null;
+        console.log("FB Pixel Settings:", { id, testCode });
         setSettings({ id, testCode });
       }
     };
