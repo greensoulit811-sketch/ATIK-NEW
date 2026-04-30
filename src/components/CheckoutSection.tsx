@@ -47,6 +47,9 @@ const CheckoutSection = () => {
   }, []);
 
   const unitPrice = selectedProduct?.price || 0;
+  const deliveryCharge = deliveryArea === "inside" ? 60 : 120;
+  const subtotal = unitPrice * quantity;
+  const total = subtotal + deliveryCharge;
 
   const handleProductSelect = (product: Product) => {
     setSelectedProduct(product);
